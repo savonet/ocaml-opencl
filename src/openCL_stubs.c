@@ -13,30 +13,26 @@
 #include <assert.h>
 #include <stdio.h>
 
+static inline void check_err(cl_int err)
+{
+  if (err != CL_SUCCESS)
+    caml_raise_with_arg(*caml_named_value("opencl_exn_error"), Val_int(-err));
+}
+
 #define Val_platform_id(id) (value)id
 #define Platform_id_val(id) (cl_platform_id)id
-
-CAMLprim value caml_opencl_num_platforms(value unit)
-{
-  CAMLparam0();
-  int n;
-
-  assert(clGetPlatformIDs(0, NULL, &n) == CL_SUCCESS);
-
-  CAMLreturn(Val_int(n));
-}
 
 CAMLprim value caml_opencl_platform_ids(value unit)
 {
   CAMLparam0();
   CAMLlocal1(ans);
-  int n;
+  cl_uint n;
   int i;
   cl_platform_id *ids;
 
-  assert(clGetPlatformIDs(0, NULL, &n) == CL_SUCCESS);
+  check_err(clGetPlatformIDs(0, NULL, &n));
   ids = malloc(n * sizeof(cl_platform_id));
-  assert(clGetPlatformIDs(n, ids, NULL) == CL_SUCCESS);
+  check_err(clGetPlatformIDs(n, ids, NULL));
   ans = caml_alloc_tuple(n);
   for (i = 0; i < n; i++)
     Store_field(ans, i, Val_platform_id(ids[i]));
@@ -67,11 +63,10 @@ CAMLprim value caml_opencl_platform_info(value _id, value var)
   CAMLlocal1(ans);
 
   cl_platform_id id = Platform_id_val(_id);
-  cl_platform_info info;
   int len = 1024;
   char s[len];
 
-  assert(clGetPlatformInfo(id, Platform_info_val(var), len, s, NULL) == CL_SUCCESS);
+  check_err(clGetPlatformInfo(id, Platform_info_val(var), len, s, NULL));
   ans = caml_copy_string(s);
   CAMLreturn(ans);
 }
@@ -111,7 +106,7 @@ CAMLprim value caml_opencl_create_context_from_type(value platform, value device
   cl_int err;
 
   context = clCreateContextFromType(cprops, Device_type_val(device_type), NULL, NULL, &err);
-  /* TODO: check err */
+  check_err(err);
   assert(context);
 
   CAMLreturn(Val_context(context));
@@ -150,7 +145,7 @@ CAMLprim value caml_opencl_create_command_queue(value context, value device)
 
   /* TODO: properties */
   queue = clCreateCommandQueue(Context_val(context), Device_id_val(device), 0, &err);
-  /* TODO: check err */
+  check_err(err);
   assert(queue);
 
   CAMLreturn(Val_command_queue(queue));
@@ -172,25 +167,43 @@ CAMLprim value caml_opencl_create_program_with_source(value context, value sourc
   prog = clCreateProgramWithSource(Context_val(context), 1, s, &len, &err);
   /* TODO: check err */
   assert(prog);
+
+  CAMLreturn(Val_program(prog));
 }
 
 CAMLprim value caml_opencl_build_program(value prog, value devices, value options)
 {
   CAMLparam3(prog, devices, options);
-  cl_uint ndevs;
+  cl_uint ndevs = Wosize_val(devices);
   cl_device_id *devs;
   int i;
 
   ndevs = Wosize_val(devices);
-  printf("devs: %d\n", ndevs);
   devs = malloc(ndevs * sizeof(cl_device_id));
   for (i = 0; i < ndevs; i++)
     devs[i] = Device_id_val(Field(devices, i));
 
-  assert(clBuildProgram(Program_val(prog), ndevs, devs, String_val(options), NULL, NULL) == CL_SUCCESS);
+  check_err(clBuildProgram(Program_val(prog), ndevs, devs, String_val(options), NULL, NULL));
 
   free(devs);
   CAMLreturn(Val_unit);
+}
+
+CAMLprim value caml_opencl_program_build_log(value prog, value device)
+{
+  CAMLparam2(prog, device);
+  CAMLlocal1(ans);
+  size_t len;
+  char *log;
+
+  check_err(clGetProgramBuildInfo(Program_val(prog), Device_id_val(device), CL_PROGRAM_BUILD_LOG, 0, NULL, &len));
+  log = malloc(len);
+  check_err(clGetProgramBuildInfo(Program_val(prog), Device_id_val(device), CL_PROGRAM_BUILD_LOG, len, log, NULL));
+
+  ans = caml_copy_string(log);
+  free(log);
+
+  CAMLreturn(ans);
 }
 
 #define Val_kernel(k) (value)k
@@ -203,7 +216,17 @@ CAMLprim value caml_opencl_create_kernel(value prog, value name)
   cl_int err;
 
   kernel = clCreateKernel(Program_val(prog), String_val(name), &err);
-  assert(kernel && err == CL_SUCCESS);
+  check_err(err);
+  assert(kernel);
 
   CAMLreturn(Val_kernel(kernel));
+}
+
+CAMLprim value caml_opencl_release_kernel(value kernel)
+{
+  CAMLparam1(kernel);
+
+  check_err(clReleaseKernel(Kernel_val(kernel)));
+
+  CAMLreturn(Val_unit);
 }

@@ -1,41 +1,60 @@
-external num_platforms : unit -> int = "caml_opencl_num_platforms"
+exception Error of int
 
-type platform_id
+let init () =
+  Callback.register_exception "opencl_exn_error" (Error 0)
 
-external platform_ids : unit -> platform_id array = "caml_opencl_platform_ids"
+module Platform = struct
+  type t
 
-type platform_info = [`Profile | `Version | `Name | `Vendor | `Extensions]
+  external available : unit -> t array = "caml_opencl_platform_ids"
 
-external platform_info : platform_id -> platform_info -> string = "caml_opencl_platform_info"
+  type info = [`Profile | `Version | `Name | `Vendor | `Extensions]
 
-let platform_profile p = platform_info p `Profile
-let platform_version p = platform_info p `Version
-let platform_name p = platform_info p `Name
-let platform_vendor p = platform_info p `Vendor
-let platform_extensions p = platform_info p `Extensions
+  external info : t -> info -> string = "caml_opencl_platform_info"
 
+  let profile p = info p `Profile
+  let version p = info p `Version
+  let name p = info p `Name
+  let vendor p = info p `Vendor
+  let extensions p = info p `Extensions
+end
+
+module Device = struct
 (* type context_properties = [`Platform] *)
 
-type device_type = [`CPU | `GPU | `Accelerator | `Default | `All]
+  type device_type = [`CPU | `GPU | `Accelerator | `Default | `All]
 
-type context
+  type t
+end
 
-external create_context_from_type : platform_id -> device_type -> context = "caml_opencl_create_context_from_type"
+module Context = struct
+  type t
 
-type device_id
+  external create_from_type : Platform.t -> Device.device_type -> t = "caml_opencl_create_context_from_type"
 
-external context_devices : context -> device_id array = "caml_opencl_context_devices"
+  external devices : t -> Device.t array = "caml_opencl_context_devices"
+end
 
-type command_queue
+module Command_queue = struct
+  type t
 
-external create_command_queue : context -> device_id -> command_queue = "caml_opencl_create_command_queue"
+  external create : Context.t -> Device.t -> t = "caml_opencl_create_command_queue"
+end
 
-type program
+module Program = struct
+  type t
 
-external create_program_with_source : context -> string -> program = "caml_opencl_create_program_with_source"
+  external create_with_source : Context.t -> string -> t = "caml_opencl_create_program_with_source"
 
-external build_program : program -> device_id array -> string -> unit = "caml_opencl_build_program"
+  external build : t -> Device.t array -> string -> unit = "caml_opencl_build_program"
 
-type kernel
+  external build_log : t -> Device.t -> string = "caml_opencl_program_build_log"
+end
 
-external create_kernel : program -> string -> kernel = "caml_opencl_create_kernel"
+module Kernel = struct
+  type t
+
+  external create : Program.t -> string -> t = "caml_opencl_create_kernel"
+
+  external release : t -> unit = "caml_opencl_release_kernel"
+end
