@@ -15,7 +15,13 @@ let init_data () =
   Printf.printf "Initializing data... %!";
   Random.self_init ();
   for i = 0 to Bigarray.Array1.dim b_in - 1 do
-    b_in.{i} <- (Random.float (float max_int))
+    b_in.{i} <- Random.float 1.
+  done;
+  for i = 0 to Bigarray.Array1.dim b_filter - 1 do
+    b_filter.{i} <- Random.float 1.
+  done;
+  for i = 0 to Bigarray.Array1.dim b_out - 1 do
+    b_out.{i} <- 666.
   done;
   Printf.printf "done\n%!"
 
@@ -27,7 +33,7 @@ let cpu_compute () =
       let sum = ref 0. in
       for r = 0 to filter_width - 1 do
         for c = 0 to filter_width - 1 do
-          sum := !sum +. b_filter.{r * filter_width + c} *. b_in.{y * in_width + x}
+          sum := !sum +. b_filter.{r * filter_width + c} *. b_in.{y * in_width + x + c}
         done
       done;
       b_out_cpu.{y * width + x} <- !sum
@@ -39,7 +45,7 @@ let cpu_compute () =
 let check () =
   Printf.printf "Compare CL and CPU results... %!";
   for i = 0 to Bigarray.Array1.dim b_out - 1 do
-    if b_out.{i} <> b_out_cpu.{i} then
+    if abs_float (b_out.{i} -. b_out_cpu.{i}) >= 0.0001 then
       Printf.printf "Mismatch at %d: %.04f vs %.04f\n%!" i b_out.{i} b_out_cpu.{i}
   done;
   Printf.printf "done\n%!"
