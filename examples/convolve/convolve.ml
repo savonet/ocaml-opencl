@@ -105,8 +105,6 @@ let () =
   let t = Sys.time () -. t in
   Printf.printf "done (%.02fs)\n%!" t;
   OpenCL.Command_queue.finish queue;
-  ignore [b_in; b_out; b_filter];
   cpu_compute ();
   check ();
-  List.iter OpenCL.Buffer.release [b_in; b_out; b_filter];
-  ()
+  Gc.full_major ()
