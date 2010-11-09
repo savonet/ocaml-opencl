@@ -1,5 +1,5 @@
 let kernels = [|"Convolve"|]
-let coef = 1
+let coef = 2
 let width = 1024*coef
 let height = 1024*coef
 let filter_width = 17
@@ -21,6 +21,7 @@ let init_data () =
 
 let cpu_compute () =
   Printf.printf "Compute using CPU... %!";
+  let t = Sys.time () in
   for y = 0 to height - 1 do
     for x = 0 to width - 1 do
       let sum = ref 0. in
@@ -32,20 +33,23 @@ let cpu_compute () =
       b_out_cpu.{y * width + x} <- !sum
     done
   done;
-  Printf.printf "done\n%!"
+  let t = Sys.time () -.  t in
+  Printf.printf "done (%.02fs)\n%!" t
 
 let check () =
+  Printf.printf "Compare CL and CPU results... %!";
   for i = 0 to Bigarray.Array1.dim b_out - 1 do
     if b_out.{i} <> b_out_cpu.{i} then
       Printf.printf "Mismatch at %d: %.04f vs %.04f\n%!" i b_out.{i} b_out_cpu.{i}
-  done
+  done;
+  Printf.printf "done\n%!"
 
 let () =
   OpenCL.init ();
   let ids = OpenCL.Platform.available () in
   Printf.printf "OpenCL: %d platform(s) available\n%!" (Array.length ids);
   let id = ids.(0) in
-  Printf.printf "Platform 0:\n- %s\n - %s\n - %s\n - %s\n - %s\n%!" (OpenCL.Platform.profile id) (OpenCL.Platform.version id) (OpenCL.Platform.name id) (OpenCL.Platform.vendor id) (OpenCL.Platform.extensions id);
+  Printf.printf "Platform 0:\n - %s\n - %s\n - %s\n - %s\n - %s\n%!" (OpenCL.Platform.profile id) (OpenCL.Platform.version id) (OpenCL.Platform.name id) (OpenCL.Platform.vendor id) (OpenCL.Platform.extensions id);
   let ctxt = OpenCL.Context.create_from_type id `CPU in
   let devs = OpenCL.Context.devices ctxt in
   Printf.printf "CPU: %d device(s) available\n%!" (Array.length devs);
@@ -88,12 +92,15 @@ let () =
   OpenCL.Kernel.set_arg_int kernel 3 in_width;
   OpenCL.Kernel.set_arg_int kernel 4 filter_width;
   OpenCL.Command_queue.finish queue;
-  Printf.printf "Executing... %!";
+  Printf.printf "Compute using CL ... %!";
+  let t = Sys.time () in
   let event = OpenCL.Command_queue.enqueue_nd_range_kernel queue kernel [|width; height|] [|32; 32|] in
   OpenCL.Event.wait event;
-  Printf.printf "done\n%!";
+  let t = Sys.time () -. t in
+  Printf.printf "done (%.02fs)\n%!" t;
   OpenCL.Command_queue.finish queue;
   ignore [b_in; b_out; b_filter];
   cpu_compute ();
+  check ();
   List.iter OpenCL.Buffer.release [b_in; b_out; b_filter];
   ()
