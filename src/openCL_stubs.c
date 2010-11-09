@@ -71,6 +71,7 @@ CAMLprim value caml_opencl_platform_info(value _id, value var)
   CAMLreturn(ans);
 }
 
+/*
 static cl_context_properties Context_properties_val(value var)
 {
   if (var == hash_variant("Platform"))
@@ -78,6 +79,7 @@ static cl_context_properties Context_properties_val(value var)
   else
     assert(0);
 }
+*/
 
 static cl_device_type Device_type_val(value var)
 {
@@ -112,6 +114,15 @@ CAMLprim value caml_opencl_create_context_from_type(value platform, value device
   CAMLreturn(Val_context(context));
 }
 
+CAMLprim value caml_opencl_release_context(value context)
+{
+  CAMLparam1(context);
+
+  check_err(clReleaseContext(Context_val(context)));
+
+  CAMLreturn(Val_unit);
+}
+
 #define Val_device_id(d) (value)d
 #define Device_id_val(v) (cl_device_id)v
 
@@ -134,38 +145,30 @@ CAMLprim value caml_opencl_context_devices(value context)
   CAMLreturn(ans);
 }
 
-#define Val_command_queue(q) (value)q
-#define Command_queue_val(v) (cl_command_queue)v
-
-CAMLprim value caml_opencl_create_command_queue(value context, value device)
-{
-  CAMLparam2(context, device);
-  cl_command_queue queue;
-  cl_int err;
-
-  /* TODO: properties */
-  queue = clCreateCommandQueue(Context_val(context), Device_id_val(device), 0, &err);
-  check_err(err);
-  assert(queue);
-
-  CAMLreturn(Val_command_queue(queue));
-}
-
 #define Val_program(p) (value)p
 #define Program_val(v) (cl_program)v
+
+CAMLprim value caml_opencl_release_program(value prog)
+{
+  CAMLparam1(prog);
+
+  check_err(clReleaseProgram(Program_val(prog)));
+
+  CAMLreturn(Val_unit);
+}
 
 CAMLprim value caml_opencl_create_program_with_source(value context, value source)
 {
   CAMLparam2(context, source);
   cl_program prog;
-  const char *s[1];
+  const char *s;
   size_t len;
   cl_int err;
 
   len = caml_string_length(source);
-  s[0] = String_val(source);
-  prog = clCreateProgramWithSource(Context_val(context), 1, s, &len, &err);
-  /* TODO: check err */
+  s = String_val(source);
+  prog = clCreateProgramWithSource(Context_val(context), 1, &s, &len, &err);
+  check_err(err);
   assert(prog);
 
   CAMLreturn(Val_program(prog));
@@ -206,6 +209,51 @@ CAMLprim value caml_opencl_program_build_log(value prog, value device)
   CAMLreturn(ans);
 }
 
+#define Val_mem(b) (value)b
+#define Mem_val(v) (cl_mem)v
+
+CAMLprim value caml_opencl_create_buffer(value context, value flags, value buf)
+{
+  CAMLparam3(context, flags, buf);
+  cl_mem m;
+  cl_mem_flags mf;
+  cl_int err;
+  int i;
+
+  mf = 0;
+  for (i = 0; i < Wosize_val(flags); i++)
+    if (Field(flags, i) == hash_variant("Read_write"))
+      mf |= CL_MEM_READ_WRITE;
+    else if (Field(flags, i) == hash_variant("Write_only"))
+      mf |= CL_MEM_WRITE_ONLY;
+    else if (Field(flags, i) == hash_variant("Read_only"))
+      mf |= CL_MEM_READ_ONLY;
+  /*
+    else if (Field(flags, i) == hash_variant("Use_host_pointer"))
+      mf |= CL_MEM_USE_HOST_PTR;
+    else if (Field(flags, i) == hash_variant("Alloc_host_pointer"))
+      mf |= CL_MEM_ALLOC_HOST_PTR;
+    else if (Field(flags, i) == hash_variant("Copy_host_pointer"))
+      mf |= CL_MEM_COPY_HOST_PTR;
+  */
+  mf |= CL_MEM_USE_HOST_PTR;
+
+  m = clCreateBuffer(Context_val(context), mf, Caml_ba_array_val(buf)->dim[0], Caml_ba_data_val(buf), &err);
+  check_err(err);
+  assert(m);
+
+  CAMLreturn(Val_mem(m));
+}
+
+CAMLprim value caml_opencl_release_buffer(value buffer)
+{
+  CAMLparam1(buffer);
+
+  check_err(clReleaseMemObject(Mem_val(buffer)));
+
+  CAMLreturn(Val_unit);
+}
+
 #define Val_kernel(k) (value)k
 #define Kernel_val(v) (cl_kernel)v
 
@@ -229,4 +277,93 @@ CAMLprim value caml_opencl_release_kernel(value kernel)
   check_err(clReleaseKernel(Kernel_val(kernel)));
 
   CAMLreturn(Val_unit);
+}
+
+CAMLprim value caml_opencl_set_kernel_arg_buffer(value kernel, value index, value buffer)
+{
+  CAMLparam3(kernel, index, buffer);
+  cl_mem m = Mem_val(buffer);
+
+  check_err(clSetKernelArg(Kernel_val(kernel), Int_val(index), sizeof(cl_mem), &m));
+
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value caml_opencl_set_kernel_arg_int(value kernel, value index, value _n)
+{
+  CAMLparam3(kernel, index, _n);
+  int n = Int_val(_n);
+
+  check_err(clSetKernelArg(Kernel_val(kernel), Int_val(index), sizeof(int), &n));
+
+  CAMLreturn(Val_unit);
+}
+
+#define Val_event(e) (value)e
+#define Event_val(v) (cl_event)v
+
+CAMLprim value caml_opencl_wait_for_event(value event)
+{
+  CAMLparam1(event);
+  cl_event e = Event_val(event);
+
+  check_err(clWaitForEvents(1, &e));
+
+  CAMLreturn(Val_unit);
+}
+
+#define Val_command_queue(q) (value)q
+#define Command_queue_val(v) (cl_command_queue)v
+
+CAMLprim value caml_opencl_create_command_queue(value context, value device)
+{
+  CAMLparam2(context, device);
+  cl_command_queue queue;
+  cl_int err;
+
+  /* TODO: properties */
+  queue = clCreateCommandQueue(Context_val(context), Device_id_val(device), 0, &err);
+  check_err(err);
+  assert(queue);
+
+  CAMLreturn(Val_command_queue(queue));
+}
+
+CAMLprim value caml_opencl_release_command_queue(value queue)
+{
+  CAMLparam1(queue);
+
+  check_err(clReleaseCommandQueue(Command_queue_val(queue)));
+
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value caml_opencl_finish(value queue)
+{
+  CAMLparam1(queue);
+
+  check_err(clFinish(Command_queue_val(queue)));
+
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value caml_opencl_enqueue_nd_range_kernel(value queue, value kernel, value global_work_size, value local_work_size)
+{
+  CAMLparam4(queue, kernel, global_work_size, local_work_size);
+
+  int work_dim = Wosize_val(global_work_size);
+  size_t gws[work_dim];
+  size_t lws[work_dim];
+  int i;
+  cl_event e;
+
+  for (i = 0; i < work_dim; i++)
+    {
+      gws[i] = Int_val(Field(global_work_size, i));
+      lws[i] = Int_val(Field(local_work_size, i));
+    }
+
+  check_err(clEnqueueNDRangeKernel(Command_queue_val(queue), Kernel_val(kernel), work_dim, NULL, gws, lws, 0, NULL, &e));
+
+  CAMLreturn(Val_event(e));
 }

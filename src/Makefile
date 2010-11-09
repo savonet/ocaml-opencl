@@ -5,9 +5,14 @@ CFLAGS = -Wall -g
 
 all: ncl
 
-test: all test.ml
-	$(OCAMLOPT) -I . opencl.cmxa test.ml -o test
+t: test
 	./test
+
+test: all test.ml
+	$(OCAMLOPT) -I . bigarray.cmxa opencl.cmxa test.ml -o test
+
+gdb: test
+	gdb ./test
 
 env:
 	source /etc/profile.d/ati-opencl.sh

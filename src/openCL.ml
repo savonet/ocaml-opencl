@@ -33,12 +33,8 @@ module Context = struct
   external create_from_type : Platform.t -> Device.device_type -> t = "caml_opencl_create_context_from_type"
 
   external devices : t -> Device.t array = "caml_opencl_context_devices"
-end
 
-module Command_queue = struct
-  type t
-
-  external create : Context.t -> Device.t -> t = "caml_opencl_create_command_queue"
+  external release : t -> unit = "caml_opencl_release_context"
 end
 
 module Program = struct
@@ -49,6 +45,20 @@ module Program = struct
   external build : t -> Device.t array -> string -> unit = "caml_opencl_build_program"
 
   external build_log : t -> Device.t -> string = "caml_opencl_program_build_log"
+
+  external release : t -> unit = "caml_opencl_release_program"
+end
+
+module Buffer = struct
+  type t
+
+  type flag = [`Read_write | `Read_only | `Write_only]
+
+  (* TODO: ensure that the bigarray does not get garbage collected while the buffer is alive *)
+  external create : Context.t -> flag array -> (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Array1.t -> t = "caml_opencl_create_buffer"
+  let create c f b = create c (Array.of_list f) b
+
+  external release : t -> unit = "caml_opencl_release_buffer"
 end
 
 module Kernel = struct
@@ -57,4 +67,26 @@ module Kernel = struct
   external create : Program.t -> string -> t = "caml_opencl_create_kernel"
 
   external release : t -> unit = "caml_opencl_release_kernel"
+
+  external set_arg_int : t -> int -> int -> unit = "caml_opencl_set_kernel_arg_int"
+
+  external set_arg_buffer : t -> int -> Buffer.t -> unit = "caml_opencl_set_kernel_arg_buffer"
+end
+
+module Event = struct
+  type t
+
+  external wait : t -> unit = "caml_opencl_wait_for_event"
+end
+
+module Command_queue = struct
+  type t
+
+  external create : Context.t -> Device.t -> t = "caml_opencl_create_command_queue"
+
+  external release : t -> unit = "caml_opencl_release_command_queue"
+
+  external finish : t -> unit = "caml_opencl_finish"
+
+  external enqueue_nd_range_kernel : t -> Kernel.t -> int array -> int array -> Event.t = "caml_opencl_enqueue_nd_range_kernel"
 end
