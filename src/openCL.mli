@@ -1,10 +1,16 @@
+(** Error executing a function. *)
 exception Error of int
 
+(** Initialize the openCL library. This function should be called once, before
+    using any other function. *)
 val init : unit -> unit
 
+(** Operations on platforms. *)
 module Platform : sig
+  (** A platform. *)
   type t
 
+  (** List available platforms. *)
   val available : unit -> t array
 
   val profile : t -> string
@@ -29,15 +35,18 @@ module Context : sig
 
   val create_from_type : Platform.t -> Device.device_type -> t
 
+  (** List devices available on a platform. *)
   val devices : t -> Device.t array
 end
 
 module Program : sig
   type t
 
+  val create_with_source_file : Context.t -> string -> t
+
   val create_with_source : Context.t -> string -> t
 
-  val build : t -> Device.t array -> string -> unit
+  val build : t -> ?options:string -> Device.t array -> unit
 
   val build_log : t -> Device.t -> string
 end
@@ -47,13 +56,17 @@ module Buffer : sig
 
   type flag = [ `Read_only | `Read_write | `Write_only ]
 
-  val create : Context.t -> flag list -> (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Array1.t -> t
+  val create : Context.t -> flag list -> ('a, 'b, Bigarray.c_layout) Bigarray.Array1.t -> t
 end
 
 module Kernel : sig
   type t
 
   val create : Program.t -> string -> t
+
+  type argument = [ `Buffer of Buffer.t | `Int of int ]
+
+  val set_args : t -> argument array -> unit
 
   val set_arg_int : t -> int -> int -> unit
 
@@ -63,6 +76,7 @@ end
 module Event : sig
   type t
 
+  (** Wait for an event to be completed. *)
   val wait : t -> unit
 end
 

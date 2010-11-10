@@ -435,3 +435,20 @@ CAMLprim value caml_opencl_enqueue_nd_range_kernel(value queue, value kernel, va
 
   CAMLreturn(ans);
 }
+
+/*
+CAMLprim value caml_opencl_equeue_write_buffer(value queue, value buffer, value blocking, value offset)
+{
+  CAMLparam4(queue, buffer, blocking, offset);
+  CAMLlocal1(ans);
+
+  cl_event e;
+
+  check_err(clEnqueueWriteBuffer(Command_queue_val(queue), Mem_val(buffer), Int_val(blocking), Int_val(offset), NULL,
+
+  ans = alloc_custom(&event_ops, sizeof(cl_event), 0, 1);
+  Event_val(ans) = e;
+
+  CAMLreturn(ans);
+}
+*/

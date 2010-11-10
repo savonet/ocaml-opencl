@@ -61,42 +61,22 @@ let () =
   Printf.printf "CPU: %d device(s) available\n%!" (Array.length devs);
   let dev = devs.(0) in
   let queue = OpenCL.Command_queue.create ctxt dev in
-  let src =
-    let ans = ref "" in
-    let ic = open_in "kernels.cl" in
-    (
-    try
-      while true do
-        ans := !ans ^ input_line ic ^ "\n"
-      done
-    with
-      | End_of_file -> ()
-    );
-    close_in ic;
-    !ans
-  in
-  (* Printf.printf ">>> Prog\n%s<<<Prog\n%!" src; *)
-  let prog = OpenCL.Program.create_with_source ctxt src in
+  let prog = OpenCL.Program.create_with_source_file ctxt "kernels.cl" in
   (
     try
-      OpenCL.Program.build prog [|dev|] "";
+      OpenCL.Program.build prog [|dev|];
     with
     | e ->
       Printf.printf "ERROR:\n%s\n%!" (OpenCL.Program.build_log prog dev);
       raise e
   );
   Printf.printf "Program built\n%!";
-  let kernels = Array.map (fun kn -> OpenCL.Kernel.create prog kn) kernels in
-  let kernel = kernels.(0) in
+  let kernel = OpenCL.Kernel.create prog "Convolve" in
   init_data ();
   let b_in = OpenCL.Buffer.create ctxt [`Read_only] b_in in
   let b_out = OpenCL.Buffer.create ctxt [`Write_only] b_out in
   let b_filter = OpenCL.Buffer.create ctxt [`Read_only] b_filter in
-  OpenCL.Kernel.set_arg_buffer kernel 0 b_in;
-  OpenCL.Kernel.set_arg_buffer kernel 1 b_filter;
-  OpenCL.Kernel.set_arg_buffer kernel 2 b_out;
-  OpenCL.Kernel.set_arg_int kernel 3 in_width;
-  OpenCL.Kernel.set_arg_int kernel 4 filter_width;
+  OpenCL.Kernel.set_args kernel [|`Buffer b_in; `Buffer b_filter; `Buffer b_out; `Int in_width; `Int filter_width|];
   OpenCL.Command_queue.finish queue;
   Printf.printf "Compute using CL ... %!";
   let t = Sys.time () in
