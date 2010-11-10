@@ -80,7 +80,7 @@ let () =
   OpenCL.Command_queue.finish queue;
   Printf.printf "Compute using CL ... %!";
   let t = Sys.time () in
-  let event = OpenCL.Command_queue.enqueue_nd_range_kernel queue kernel [|width; height|] [|32; 32|] in
+  let event = OpenCL.Command_queue.enqueue_nd_range_kernel queue kernel [|width; height|] ~local_work_size:[|32; 32|] in
   OpenCL.Event.wait event;
   let t = Sys.time () -. t in
   Printf.printf "done (%.02fs)\n%!" t;

@@ -101,5 +101,33 @@ module Command_queue = struct
 
   external finish : t -> unit = "caml_opencl_finish"
 
-  external enqueue_nd_range_kernel : t -> Kernel.t -> int array -> int array -> Event.t = "caml_opencl_enqueue_nd_range_kernel"
+  external enqueue_nd_range_kernel : t -> Kernel.t -> ?local_work_size:(int array) -> int array -> Event.t = "caml_opencl_enqueue_nd_range_kernel"
 end
+
+let run ?platform ?(device_type=`GPU) kernel_file kernel_name args ?local_work_size gws =
+  let platform =
+    match platform with
+      | Some p -> p
+      | None -> (Platform.available ()).(0)
+  in
+  let ctxt = Context.create_from_type platform device_type in
+  let device = (Context.devices ctxt).(0) in
+  let queue = Command_queue.create ctxt device in
+  let prog = Program.create_with_source_file ctxt kernel_file in
+  Program.build prog [|device|];
+  let kernel = Kernel.create prog kernel_name in
+  let args =
+    Array.map
+      (function
+        | `Buffer_in b ->
+          `Buffer (Buffer.create ctxt [`Read_only] b)
+        | `Buffer_out b ->
+          `Buffer (Buffer.create ctxt [`Write_only] b)
+        | `Int n as a -> a
+      ) args
+  in
+  Kernel.set_args kernel args;
+  Command_queue.finish queue;
+  let event = Command_queue.enqueue_nd_range_kernel queue kernel ?local_work_size gws in
+  Event.wait event;
+  Command_queue.finish queue

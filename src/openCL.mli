@@ -87,5 +87,11 @@ module Command_queue : sig
 
   val finish : t -> unit
 
-  val enqueue_nd_range_kernel : t -> Kernel.t -> int array -> int array -> Event.t
+  val enqueue_nd_range_kernel : t -> Kernel.t -> ?local_work_size:int array -> int array -> Event.t
 end
+
+(** Helper function to quickly test a kernel. *)
+val run : ?platform:Platform.t -> ?device_type:Device.device_type -> string -> string ->
+  [ `Buffer_in of ('a, 'b, Bigarray.c_layout) Bigarray.Array1.t
+  | `Buffer_out of ('a, 'b, Bigarray.c_layout) Bigarray.Array1.t
+  | `Int of int ] array -> ?local_work_size:int array -> int array -> unit

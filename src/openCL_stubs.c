@@ -412,24 +412,30 @@ CAMLprim value caml_opencl_finish(value queue)
   CAMLreturn(Val_unit);
 }
 
-CAMLprim value caml_opencl_enqueue_nd_range_kernel(value queue, value kernel, value global_work_size, value local_work_size)
+CAMLprim value caml_opencl_enqueue_nd_range_kernel(value queue, value kernel, value local_work_size, value global_work_size)
 {
-  CAMLparam4(queue, kernel, global_work_size, local_work_size);
+  CAMLparam4(queue, kernel, local_work_size, global_work_size);
   CAMLlocal1(ans);
 
   int work_dim = Wosize_val(global_work_size);
   size_t gws[work_dim];
-  size_t lws[work_dim];
+  size_t *lws = NULL;
   int i;
   cl_event e;
+
+  if (Is_block(local_work_size))
+    lws = malloc(work_dim * sizeof(size_t));
 
   for (i = 0; i < work_dim; i++)
     {
       gws[i] = Int_val(Field(global_work_size, i));
-      lws[i] = Int_val(Field(local_work_size, i));
+      if (lws)
+        lws[i] = Int_val(Field(Field(local_work_size, 0), i));
     }
 
   check_err(clEnqueueNDRangeKernel(Command_queue_val(queue), Kernel_val(kernel), work_dim, NULL, gws, lws, 0, NULL, &e));
+  if (lws)
+    free(lws);
   ans = alloc_custom(&event_ops, sizeof(cl_event), 0, 1);
   Event_val(ans) = e;
 
