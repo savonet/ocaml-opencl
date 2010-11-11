@@ -2,6 +2,7 @@ PROGNAME=ocaml-opencl
 VERSION=0.1
 DISTFILES= Makefile README \
 	src/*.ml src/*.mli src/*.c src/OCamlMakefile src/Makefile \
+	examples/Makefile examples/OCamlMakefile \
 	examples/convolve/*.ml examples/convolve/*Makefile* examples/convolve/*.cl \
 	examples/mat_mult/*.ml examples/mat_mult/*Makefile* examples/mat_mult/*.cl \
 	examples/mat_mult_fast/*.ml examples/mat_mult_fast/*Makefile* examples/mat_mult_fast/*.cl

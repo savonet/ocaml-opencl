@@ -45,7 +45,7 @@ let () =
   Printf.printf "OpenCL: %d platform(s) available\n%!" (Array.length ids);
   let id = ids.(0) in
   Printf.printf "Platform 0:\n - %s\n - %s\n - %s\n - %s\n - %s\n%!" (OpenCL.Platform.profile id) (OpenCL.Platform.version id) (OpenCL.Platform.name id) (OpenCL.Platform.vendor id) (OpenCL.Platform.extensions id);
-  let ctxt = OpenCL.Context.create_from_type id `CPU in
+  let ctxt = OpenCL.Context.create_from_type ~platform:id `CPU in
   let devs = OpenCL.Context.devices ctxt in
   Printf.printf "CPU: %d device(s) available\n%!" (Array.length devs);
   let dev = devs.(0) in
@@ -53,7 +53,7 @@ let () =
   let prog = OpenCL.Program.create_with_source_file ctxt "kernels.cl" in
   (
     try
-      OpenCL.Program.build prog [|dev|];
+      OpenCL.Program.build prog ~devices:[|dev|];
     with
     | e ->
       Printf.printf "ERROR:\n%s\n%!" (OpenCL.Program.build_log prog dev);

@@ -19,6 +19,15 @@ static inline void check_err(cl_int err)
     caml_raise_with_arg(*caml_named_value("opencl_exn_error"), Val_int(-err));
 }
 
+static inline void check_err_free(cl_int err, void *p)
+{
+  if (err != CL_SUCCESS)
+    {
+      if (p) free(p);
+      check_err(err);
+    }
+}
+
 #define Val_platform_id(p) (value)p
 #define Platform_id_val(v) (cl_platform_id)v
 
@@ -32,7 +41,7 @@ CAMLprim value caml_opencl_platform_ids(value unit)
 
   check_err(clGetPlatformIDs(0, NULL, &n));
   ids = malloc(n * sizeof(cl_platform_id));
-  check_err(clGetPlatformIDs(n, ids, NULL));
+  check_err_free(clGetPlatformIDs(n, ids, NULL), ids);
   ans = caml_alloc_tuple(n);
   for (i = 0; i < n; i++)
     Store_field(ans, i, Val_platform_id(ids[i]));
@@ -117,11 +126,20 @@ CAMLprim value caml_opencl_create_context_from_type(value platform, value device
 {
   CAMLparam2(platform, device_type);
   CAMLlocal1(ans);
-  cl_context_properties cprops[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(Platform_id_val(platform)), 0 };
+  cl_context_properties *cprops = NULL;
   cl_context context;
   cl_int err;
 
+  if (Is_block(platform))
+    {
+      cprops = malloc(3*sizeof(cl_context_properties));
+      cprops[0] = CL_CONTEXT_PLATFORM;
+      cprops[1] = (cl_context_properties)(Platform_id_val(Field(platform,0)));
+      cprops[2] = 0;
+    }
+
   context = clCreateContextFromType(cprops, Device_type_val(device_type), NULL, NULL, &err);
+  free(cprops);
   check_err(err);
   assert(context);
   ans = alloc_custom(&context_ops, sizeof(cl_context), 0, 1);
@@ -141,9 +159,9 @@ CAMLprim value caml_opencl_context_devices(value context)
   cl_device_id *devs;
   int i;
 
-  assert(clGetContextInfo(Context_val(context), CL_CONTEXT_DEVICES, 0, NULL, &ndev) == CL_SUCCESS);
+  check_err(clGetContextInfo(Context_val(context), CL_CONTEXT_DEVICES, 0, NULL, &ndev));
   devs = malloc(ndev * sizeof(cl_device_id));
-  assert(clGetContextInfo(Context_val(context), CL_CONTEXT_DEVICES, ndev, devs, NULL) == CL_SUCCESS);
+  check_err_free(clGetContextInfo(Context_val(context), CL_CONTEXT_DEVICES, ndev, devs, NULL), devs);
   ans = caml_alloc_tuple(ndev);
   for (i = 0; i < ndev; i++)
     Store_field(ans, i, Val_device_id(devs[i]));
@@ -191,18 +209,23 @@ CAMLprim value caml_opencl_create_program_with_source(value context, value sourc
 CAMLprim value caml_opencl_build_program(value prog, value devices, value options)
 {
   CAMLparam3(prog, devices, options);
-  cl_uint ndevs = Wosize_val(devices);
-  cl_device_id *devs;
+  cl_uint ndevs = 0;
+  cl_device_id *devs = NULL;
+  cl_int err;
   int i;
 
-  ndevs = Wosize_val(devices);
-  devs = malloc(ndevs * sizeof(cl_device_id));
-  for (i = 0; i < ndevs; i++)
-    devs[i] = Device_id_val(Field(devices, i));
+  if (Is_block(devices))
+    {
+      ndevs = Wosize_val(Field(devices, 0));
+      devs = malloc(ndevs * sizeof(cl_device_id));
+      for (i = 0; i < ndevs; i++)
+        devs[i] = Device_id_val(Field(Field(devices, 0), i));
+    }
 
-  check_err(clBuildProgram(Program_val(prog), ndevs, devs, String_val(options), NULL, NULL));
+  err = clBuildProgram(Program_val(prog), ndevs, devs, String_val(options), NULL, NULL);
+  if (devs) free(devs);
+  check_err(err);
 
-  free(devs);
   CAMLreturn(Val_unit);
 }
 
@@ -215,7 +238,7 @@ CAMLprim value caml_opencl_program_build_log(value prog, value device)
 
   check_err(clGetProgramBuildInfo(Program_val(prog), Device_id_val(device), CL_PROGRAM_BUILD_LOG, 0, NULL, &len));
   log = malloc(len);
-  check_err(clGetProgramBuildInfo(Program_val(prog), Device_id_val(device), CL_PROGRAM_BUILD_LOG, len, log, NULL));
+  check_err_free(clGetProgramBuildInfo(Program_val(prog), Device_id_val(device), CL_PROGRAM_BUILD_LOG, len, log, NULL), log);
 
   ans = caml_copy_string(log);
   free(log);
@@ -424,7 +447,10 @@ CAMLprim value caml_opencl_enqueue_nd_range_kernel(value queue, value kernel, va
   cl_event e;
 
   if (Is_block(local_work_size))
-    lws = malloc(work_dim * sizeof(size_t));
+    {
+      assert(Wosize_val(Field(local_work_size, 0)) == Wosize_val(global_work_size));
+      lws = malloc(work_dim * sizeof(size_t));
+    }
 
   for (i = 0; i < work_dim; i++)
     {
@@ -433,9 +459,8 @@ CAMLprim value caml_opencl_enqueue_nd_range_kernel(value queue, value kernel, va
         lws[i] = Int_val(Field(Field(local_work_size, 0), i));
     }
 
-  check_err(clEnqueueNDRangeKernel(Command_queue_val(queue), Kernel_val(kernel), work_dim, NULL, gws, lws, 0, NULL, &e));
-  if (lws)
-    free(lws);
+  check_err_free(clEnqueueNDRangeKernel(Command_queue_val(queue), Kernel_val(kernel), work_dim, NULL, gws, lws, 0, NULL, &e), lws);
+  if (lws) free(lws);
   ans = alloc_custom(&event_ops, sizeof(cl_event), 0, 1);
   Event_val(ans) = e;
 

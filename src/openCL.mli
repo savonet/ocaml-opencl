@@ -35,7 +35,7 @@ end
 module Context : sig
   type t
 
-  val create_from_type : Platform.t -> Device.device_type -> t
+  val create_from_type : ?platform:Platform.t -> Device.device_type -> t
 
   (** List devices available on a platform. *)
   val devices : t -> Device.t array
@@ -48,7 +48,7 @@ module Program : sig
 
   val create_with_source : Context.t -> string -> t
 
-  val build : t -> ?options:string -> Device.t array -> unit
+  val build : ?options:string -> ?devices:Device.t array -> t -> unit
 
   val build_log : t -> Device.t -> string
 end

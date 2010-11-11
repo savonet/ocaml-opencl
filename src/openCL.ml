@@ -32,7 +32,7 @@ end
 module Context = struct
   type t
 
-  external create_from_type : Platform.t -> Device.device_type -> t = "caml_opencl_create_context_from_type"
+  external create_from_type : ?platform:Platform.t -> Device.device_type -> t = "caml_opencl_create_context_from_type"
 
   external devices : t -> Device.t array = "caml_opencl_context_devices"
 end
@@ -56,8 +56,8 @@ module Program = struct
     close_in ic;
     create_with_source c !src
 
-  external build : t -> Device.t array -> string -> unit = "caml_opencl_build_program"
-  let build p ?(options="") d = build p d options
+  external build : t -> ?devices:Device.t array -> string -> unit = "caml_opencl_build_program"
+  let build ?(options="") ?devices p = build p ?devices options
 
   external build_log : t -> Device.t -> string = "caml_opencl_program_build_log"
 end
@@ -107,18 +107,13 @@ module Command_queue = struct
 end
 
 let run ?platform ?(device_type=`GPU) kernel_file ?build_options kernel_name args ?local_work_size gws =
-  let platform =
-    match platform with
-      | Some p -> p
-      | None -> (Platform.available ()).(0)
-  in
-  let ctxt = Context.create_from_type platform device_type in
+  let ctxt = Context.create_from_type ?platform device_type in
   let device = (Context.devices ctxt).(0) in
   let queue = Command_queue.create ctxt device in
   let prog = Program.create_with_source_file ctxt kernel_file in
   (
     try
-      Program.build prog [|device|] ?options:build_options;
+      Program.build prog ~devices:[|device|] ?options:build_options;
     with
       | e ->
         Printf.eprintf "Error while building:\n%s\n%!" (Program.build_log prog device);
