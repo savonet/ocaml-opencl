@@ -3,6 +3,8 @@ exception Error of int
 let init () =
   Callback.register_exception "opencl_exn_error" (Error 0)
 
+external unload_compiler : unit -> unit = "caml_opencl_unload_compiler"
+
 module Platform = struct
   type t
 
@@ -104,7 +106,7 @@ module Command_queue = struct
   external enqueue_nd_range_kernel : t -> Kernel.t -> ?local_work_size:(int array) -> int array -> Event.t = "caml_opencl_enqueue_nd_range_kernel"
 end
 
-let run ?platform ?(device_type=`GPU) kernel_file kernel_name args ?local_work_size gws =
+let run ?platform ?(device_type=`GPU) kernel_file ?build_options kernel_name args ?local_work_size gws =
   let platform =
     match platform with
       | Some p -> p
@@ -114,7 +116,14 @@ let run ?platform ?(device_type=`GPU) kernel_file kernel_name args ?local_work_s
   let device = (Context.devices ctxt).(0) in
   let queue = Command_queue.create ctxt device in
   let prog = Program.create_with_source_file ctxt kernel_file in
-  Program.build prog [|device|];
+  (
+    try
+      Program.build prog [|device|] ?options:build_options;
+    with
+      | e ->
+        Printf.eprintf "Error while building:\n%s\n%!" (Program.build_log prog device);
+        raise e
+  );
   let kernel = Kernel.create prog kernel_name in
   let args =
     Array.map

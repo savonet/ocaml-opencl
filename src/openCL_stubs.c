@@ -450,7 +450,7 @@ CAMLprim value caml_opencl_equeue_write_buffer(value queue, value buffer, value 
 
   cl_event e;
 
-  check_err(clEnqueueWriteBuffer(Command_queue_val(queue), Mem_val(buffer), Int_val(blocking), Int_val(offset), NULL,
+  check_err(clEnqueueWriteBuffer(Command_queue_val(queue), Mem_val(buffer), Int_val(blocking), Int_val(offset), NULL,));
 
   ans = alloc_custom(&event_ops, sizeof(cl_event), 0, 1);
   Event_val(ans) = e;
@@ -458,3 +458,12 @@ CAMLprim value caml_opencl_equeue_write_buffer(value queue, value buffer, value 
   CAMLreturn(ans);
 }
 */
+
+CAMLprim value caml_opencl_unload_compiler(value unit)
+{
+  CAMLparam0();
+
+  check_err(clUnloadCompiler());
+
+  CAMLreturn(Val_unit);
+}

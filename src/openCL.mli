@@ -5,6 +5,8 @@ exception Error of int
     using any other function. *)
 val init : unit -> unit
 
+val unload_compiler : unit -> unit
+
 (** Operations on platforms. *)
 module Platform : sig
   (** A platform. *)
@@ -91,7 +93,9 @@ module Command_queue : sig
 end
 
 (** Helper function to quickly test a kernel. *)
-val run : ?platform:Platform.t -> ?device_type:Device.device_type -> string -> string ->
+val run : ?platform:Platform.t -> ?device_type:Device.device_type -> string -> ?build_options:string ->
+  string ->
   [ `Buffer_in of ('a, 'b, Bigarray.c_layout) Bigarray.Array1.t
   | `Buffer_out of ('a, 'b, Bigarray.c_layout) Bigarray.Array1.t
-  | `Int of int ] array -> ?local_work_size:int array -> int array -> unit
+  | `Int of int ] array ->
+  ?local_work_size:int array -> int array -> unit

@@ -12,7 +12,7 @@ let () = Random.self_init ()
 let randomize a =
   Printf.printf "Randomizing... %!";
   for i = 0 to Bigarray.Array1.dim a - 1 do
-    a.{i} <- Random.float 1.
+    a.{i} <- (* Random.float *) 1.
   done;
   Printf.printf "done\n%!"
 
@@ -45,7 +45,7 @@ let () =
   randomize b;
   Printf.printf "Computing using CL ... %!";
   let t = Sys.time () in
-  OpenCL.run ~device_type:`CPU "kernels.cl" "Mat_mult" [|`Buffer_in a; `Buffer_in b; `Buffer_out gpu; `Int n; `Int p|] [|m;p|];
+  OpenCL.run ~device_type:`CPU "kernels.cl" "Mat_mult" [|`Buffer_in a; `Buffer_in b; `Buffer_out gpu; `Int n; `Int p|] [|m;p|] ~local_work_size:[|32;32|];
   let t = Sys.time () -. t in
   Printf.printf "done (%.02fs)\n%!" t;
   cpu_compute ();
