@@ -308,7 +308,10 @@ CAMLprim value caml_opencl_create_buffer(value context, value flags, value buf)
   // buf should stay alive while m is
   if (mem->v)
     caml_register_global_root(&mem->v);
+  /* TODO: find a way to cleanly handle memory in 1.0 */
+#ifdef CL_VERSION_1_1
   check_err(clSetMemObjectDestructorCallback(m, mem_really_finalize, mem));
+#endif
   ans = alloc_custom(&mem_ops, sizeof(mem_t*), 0, 1);
   Mem_t_val(ans) = mem;
 
