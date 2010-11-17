@@ -80,6 +80,8 @@ module Event : sig
 
   (** Wait for an event to be completed. *)
   val wait : t -> unit
+
+  val duration : t -> Int64.t
 end
 
 module Command_queue : sig

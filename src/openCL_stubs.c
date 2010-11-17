@@ -406,6 +406,28 @@ CAMLprim value caml_opencl_wait_for_event(value event)
   CAMLreturn(Val_unit);
 }
 
+CAMLprim value caml_opencl_event_profiling_info(value event, value param)
+{
+  CAMLparam2(event, param);
+  cl_ulong t;
+  cl_profiling_info p;
+
+  if (param == hash_variant("Command_queued"))
+    p = CL_PROFILING_COMMAND_QUEUED;
+  else if (param == hash_variant("Command_submit"))
+    p = CL_PROFILING_COMMAND_SUBMIT;
+  else if (param == hash_variant("Command_start"))
+    p = CL_PROFILING_COMMAND_START;
+  else if (param == hash_variant("Command_end"))
+    p = CL_PROFILING_COMMAND_END;
+  else
+    assert(0);
+
+  check_err(clGetEventProfilingInfo(Event_val(event), p, sizeof(cl_ulong), &t, NULL));
+
+  CAMLreturn(caml_copy_int64(t));
+}
+
 #define Command_queue_val(v) *((cl_command_queue*)Data_custom_val(v))
 
 static void command_queue_finalize(value queue)

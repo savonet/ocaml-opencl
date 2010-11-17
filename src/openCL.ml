@@ -63,6 +63,7 @@ module Program = struct
 end
 
 module Buffer = struct
+  (* TODO: phantom type to ensure buffer compatibility *)
   type t
 
   type flag = [ `Read_write | `Read_only | `Write_only | `Alloc_device ]
@@ -94,6 +95,15 @@ module Event = struct
   type t
 
   external wait : t -> unit = "caml_opencl_wait_for_event"
+
+  type profiling_info = [ `Command_queued | `Command_submit | `Command_start | `Command_end ]
+
+  external profiling_info : t -> profiling_info -> Int64.t = "caml_opencl_event_profiling_info"
+
+  let duration e =
+    let b = profiling_info e `Command_start in
+    let e = profiling_info e `Command_end in
+    Int64.sub e b
 end
 
 module Command_queue = struct
