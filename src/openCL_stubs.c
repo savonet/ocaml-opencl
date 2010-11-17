@@ -277,9 +277,9 @@ static struct custom_operations mem_ops = {
   custom_deserialize_default
 };
 
-CAMLprim value caml_opencl_create_buffer(value context, value flags, value buf)
+CAMLprim value caml_opencl_create_buffer(value context, value flags, value _buf)
 {
-  CAMLparam3(context, flags, buf);
+  CAMLparam3(context, flags, _buf);
   CAMLlocal1(ans);
   cl_mem m;
   cl_mem_flags mf;
@@ -287,6 +287,9 @@ CAMLprim value caml_opencl_create_buffer(value context, value flags, value buf)
   int i;
   mem_t *mem = malloc(sizeof(mem_t));
   mem->v = 0;
+  void *buf;
+
+  buf = Caml_ba_data_val(_buf);
 
   mf = 0;
   for (i = 0; i < Wosize_val(flags); i++)
@@ -296,18 +299,23 @@ CAMLprim value caml_opencl_create_buffer(value context, value flags, value buf)
       mf |= CL_MEM_WRITE_ONLY;
     else if (Field(flags, i) == hash_variant("Read_only"))
       mf |= CL_MEM_READ_ONLY;
+    else if (Field(flags, i) == hash_variant("Alloc_device"))
+      buf = NULL;
   /* We always use host pointers, is it a good idea? */
-  mf |= CL_MEM_USE_HOST_PTR;
+  if (buf)
+    mf |= CL_MEM_USE_HOST_PTR;
 
-  m = clCreateBuffer(Context_val(context), mf, Caml_ba_array_val(buf)->dim[0], Caml_ba_data_val(buf), &err);
+  m = clCreateBuffer(Context_val(context), mf, buf?Caml_ba_array_val(_buf)->dim[0]:0, buf, &err);
   check_err(err);
   assert(m);
 
   mem->m = m;
-  mem->v = buf;
-  // buf should stay alive while m is
-  if (mem->v)
-    caml_register_global_root(&mem->v);
+  if (buf)
+    {
+      mem->v = _buf;
+      // buf should stay alive while m is
+      caml_register_global_root(&mem->v);
+    }
   /* TODO: find a way to cleanly handle memory in 1.0 */
 #ifdef CL_VERSION_1_1
   check_err(clSetMemObjectDestructorCallback(m, mem_really_finalize, mem));
@@ -464,6 +472,21 @@ CAMLprim value caml_opencl_enqueue_nd_range_kernel(value queue, value kernel, va
 
   check_err_free(clEnqueueNDRangeKernel(Command_queue_val(queue), Kernel_val(kernel), work_dim, NULL, gws, lws, 0, NULL, &e), lws);
   if (lws) free(lws);
+  ans = alloc_custom(&event_ops, sizeof(cl_event), 0, 1);
+  Event_val(ans) = e;
+
+  CAMLreturn(ans);
+}
+
+CAMLprim value caml_opencl_enqueue_read_buffer(value queue, value buffer, value blocking, value offset, value ba)
+{
+  CAMLparam5(queue, buffer, blocking, offset, ba);
+  CAMLlocal1(ans);
+
+  cl_event e;
+
+  check_err(clEnqueueReadBuffer(Command_queue_val(queue), Mem_val(buffer), Bool_val(blocking), Int_val(offset), Caml_ba_array_val(ba)->dim[0], Caml_ba_data_val(ba), 0, NULL, &e));
+
   ans = alloc_custom(&event_ops, sizeof(cl_event), 0, 1);
   Event_val(ans) = e;
 

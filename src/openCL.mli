@@ -56,7 +56,7 @@ end
 module Buffer : sig
   type t
 
-  type flag = [ `Read_only | `Read_write | `Write_only ]
+  type flag = [ `Read_only | `Read_write | `Write_only | `Alloc_device ]
 
   val create : Context.t -> flag list -> ('a, 'b, Bigarray.c_layout) Bigarray.Array1.t -> t
 end
@@ -89,7 +89,9 @@ module Command_queue : sig
 
   val finish : t -> unit
 
-  val enqueue_nd_range_kernel : t -> Kernel.t -> ?local_work_size:int array -> int array -> Event.t
+  val nd_range_kernel : t -> Kernel.t -> ?local_work_size:int array -> int array -> Event.t
+
+  val read_buffer : t -> Buffer.t -> bool -> int -> ('a, 'b, Bigarray.c_layout) Bigarray.Array1.t -> Event.t
 end
 
 (** Helper function to quickly test a kernel. *)

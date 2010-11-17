@@ -65,13 +65,14 @@ let () =
   randomize b;
   let a = OpenCL.Buffer.create ctxt [`Read_only] a in
   let b = OpenCL.Buffer.create ctxt [`Read_only] b in
-  let gpu = OpenCL.Buffer.create ctxt [`Write_only] gpu in
-  OpenCL.Kernel.set_args kernel [|`Buffer a; `Buffer b; `Buffer gpu; `Int n; `Int p|];
+  let gpu_b = OpenCL.Buffer.create ctxt [`Write_only] gpu in
+  OpenCL.Kernel.set_args kernel [|`Buffer a; `Buffer b; `Buffer gpu_b; `Int n; `Int p|];
   OpenCL.Command_queue.finish queue;
   Printf.printf "Compute using CL ... %!";
   let t = Sys.time () in
-  let event = OpenCL.Command_queue.enqueue_nd_range_kernel queue kernel [|m; p|] ~local_work_size:[|32; 32|] in
-  OpenCL.Event.wait event;
+  let _ = OpenCL.Command_queue.nd_range_kernel queue kernel [|m; p|] ~local_work_size:[|32; 32|] in
+  let _ = OpenCL.Command_queue.read_buffer queue gpu_b true 0 gpu in
+  (* OpenCL.Event.wait event; *)
   let t = Sys.time () -. t in
   Printf.printf "done (%.02fs)\n%!" t;
   OpenCL.Command_queue.finish queue;

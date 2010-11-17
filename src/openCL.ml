@@ -65,7 +65,7 @@ end
 module Buffer = struct
   type t
 
-  type flag = [`Read_write | `Read_only | `Write_only]
+  type flag = [ `Read_write | `Read_only | `Write_only | `Alloc_device ]
 
   external create : Context.t -> flag array -> ('a, 'b, Bigarray.c_layout) Bigarray.Array1.t -> t = "caml_opencl_create_buffer"
   let create c f b = create c (Array.of_list f) b
@@ -103,7 +103,9 @@ module Command_queue = struct
 
   external finish : t -> unit = "caml_opencl_finish"
 
-  external enqueue_nd_range_kernel : t -> Kernel.t -> ?local_work_size:(int array) -> int array -> Event.t = "caml_opencl_enqueue_nd_range_kernel"
+  external nd_range_kernel : t -> Kernel.t -> ?local_work_size:(int array) -> int array -> Event.t = "caml_opencl_enqueue_nd_range_kernel"
+
+  external read_buffer : t -> Buffer.t -> bool -> int -> ('a, 'b, Bigarray.c_layout) Bigarray.Array1.t -> Event.t = "caml_opencl_enqueue_read_buffer"
 end
 
 let run ?platform ?(device_type=`GPU) kernel_file ?build_options kernel_name args ?local_work_size gws =
@@ -132,6 +134,6 @@ let run ?platform ?(device_type=`GPU) kernel_file ?build_options kernel_name arg
   in
   Kernel.set_args kernel args;
   Command_queue.finish queue;
-  let event = Command_queue.enqueue_nd_range_kernel queue kernel ?local_work_size gws in
+  let event = Command_queue.nd_range_kernel queue kernel ?local_work_size gws in
   Event.wait event;
   Command_queue.finish queue
