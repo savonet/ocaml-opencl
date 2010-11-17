@@ -293,19 +293,21 @@ CAMLprim value caml_opencl_create_buffer(value context, value flags, value _buf)
 
   mf = 0;
   for (i = 0; i < Wosize_val(flags); i++)
-    if (Field(flags, i) == hash_variant("Read_write"))
-      mf |= CL_MEM_READ_WRITE;
-    else if (Field(flags, i) == hash_variant("Write_only"))
-      mf |= CL_MEM_WRITE_ONLY;
-    else if (Field(flags, i) == hash_variant("Read_only"))
-      mf |= CL_MEM_READ_ONLY;
-    else if (Field(flags, i) == hash_variant("Alloc_device"))
-      buf = NULL;
+    {
+      if (Field(flags, i) == hash_variant("Read_write"))
+	mf |= CL_MEM_READ_WRITE;
+      else if (Field(flags, i) == hash_variant("Write_only"))
+	mf |= CL_MEM_WRITE_ONLY;
+      else if (Field(flags, i) == hash_variant("Read_only"))
+	mf |= CL_MEM_READ_ONLY;
+      else if (Field(flags, i) == hash_variant("Alloc_device"))
+	buf = NULL;
+    }
   /* We always use host pointers, is it a good idea? */
   if (buf)
     mf |= CL_MEM_USE_HOST_PTR;
 
-  m = clCreateBuffer(Context_val(context), mf, buf?Caml_ba_array_val(_buf)->dim[0]:0, buf, &err);
+  m = clCreateBuffer(Context_val(context), mf, caml_ba_byte_size(Caml_ba_array_val(_buf)), buf, &err);
   check_err(err);
   assert(m);
 
@@ -485,7 +487,7 @@ CAMLprim value caml_opencl_enqueue_read_buffer(value queue, value buffer, value 
 
   cl_event e;
 
-  check_err(clEnqueueReadBuffer(Command_queue_val(queue), Mem_val(buffer), Bool_val(blocking), Int_val(offset), Caml_ba_array_val(ba)->dim[0], Caml_ba_data_val(ba), 0, NULL, &e));
+  check_err(clEnqueueReadBuffer(Command_queue_val(queue), Mem_val(buffer), Bool_val(blocking), Int_val(offset), caml_ba_byte_size(Caml_ba_array_val(ba)), Caml_ba_data_val(ba), 0, NULL, &e));
 
   ans = alloc_custom(&event_ops, sizeof(cl_event), 0, 1);
   Event_val(ans) = e;

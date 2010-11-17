@@ -1,5 +1,5 @@
-let m = 256
-let n = 512
+let m = 1024
+let n = 1024
 let p = 1024
 
 let a = Bigarray.Array1.create Bigarray.float32 Bigarray.c_layout (m * n)
@@ -45,7 +45,7 @@ let () =
   Printf.printf "OpenCL: %d platform(s) available\n%!" (Array.length ids);
   let id = ids.(0) in
   Printf.printf "Platform 0:\n - %s\n - %s\n - %s\n - %s\n - %s\n%!" (OpenCL.Platform.profile id) (OpenCL.Platform.version id) (OpenCL.Platform.name id) (OpenCL.Platform.vendor id) (OpenCL.Platform.extensions id);
-  let ctxt = OpenCL.Context.create_from_type ~platform:id `CPU in
+  let ctxt = OpenCL.Context.create_from_type ~platform:id `GPU in
   let devs = OpenCL.Context.devices ctxt in
   Printf.printf "CPU: %d device(s) available\n%!" (Array.length devs);
   let dev = devs.(0) in
@@ -65,12 +65,12 @@ let () =
   randomize b;
   let a = OpenCL.Buffer.create ctxt [`Read_only] a in
   let b = OpenCL.Buffer.create ctxt [`Read_only] b in
-  let gpu_b = OpenCL.Buffer.create ctxt [`Write_only] gpu in
+  let gpu_b = OpenCL.Buffer.create ctxt [`Write_only; `Alloc_device] gpu in
   OpenCL.Kernel.set_args kernel [|`Buffer a; `Buffer b; `Buffer gpu_b; `Int n; `Int p|];
   OpenCL.Command_queue.finish queue;
   Printf.printf "Compute using CL ... %!";
   let t = Sys.time () in
-  let _ = OpenCL.Command_queue.nd_range_kernel queue kernel [|m; p|] ~local_work_size:[|32; 32|] in
+  let _ = OpenCL.Command_queue.nd_range_kernel queue kernel [|m; p|] (*~local_work_size:[|16; 16|]*) in
   let _ = OpenCL.Command_queue.read_buffer queue gpu_b true 0 gpu in
   (* OpenCL.Event.wait event; *)
   let t = Sys.time () -. t in

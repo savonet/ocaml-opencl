@@ -1,5 +1,5 @@
 let kernels = [|"Convolve"|]
-let coef = 2
+let coef = 1
 let width = 1024*coef
 let height = 1024*coef
 let filter_width = 17
@@ -56,7 +56,7 @@ let () =
   Printf.printf "OpenCL: %d platform(s) available\n%!" (Array.length ids);
   let id = ids.(0) in
   Printf.printf "Platform 0:\n - %s\n - %s\n - %s\n - %s\n - %s\n%!" (OpenCL.Platform.profile id) (OpenCL.Platform.version id) (OpenCL.Platform.name id) (OpenCL.Platform.vendor id) (OpenCL.Platform.extensions id);
-  let ctxt = OpenCL.Context.create_from_type ~platform:id `CPU in
+  let ctxt = OpenCL.Context.create_from_type ~platform:id `GPU in
   let devs = OpenCL.Context.devices ctxt in
   Printf.printf "CPU: %d device(s) available\n%!" (Array.length devs);
   let dev = devs.(0) in
@@ -73,15 +73,16 @@ let () =
   Printf.printf "Program built\n%!";
   let kernel = OpenCL.Kernel.create prog "Convolve" in
   init_data ();
+  let t = Sys.time () in
   let b_in = OpenCL.Buffer.create ctxt [`Read_only] b_in in
-  let b_out = OpenCL.Buffer.create ctxt [`Write_only] b_out in
+  let buf_out = OpenCL.Buffer.create ctxt [`Write_only; `Alloc_device] b_out in
   let b_filter = OpenCL.Buffer.create ctxt [`Read_only] b_filter in
-  OpenCL.Kernel.set_args kernel [|`Buffer b_in; `Buffer b_filter; `Buffer b_out; `Int in_width; `Int filter_width|];
+  OpenCL.Kernel.set_args kernel [|`Buffer b_in; `Buffer b_filter; `Buffer buf_out; `Int in_width; `Int filter_width|];
   OpenCL.Command_queue.finish queue;
   Printf.printf "Compute using CL ... %!";
-  let t = Sys.time () in
-  let event = OpenCL.Command_queue.enqueue_nd_range_kernel queue kernel [|width; height|] ~local_work_size:[|32; 32|] in
-  OpenCL.Event.wait event;
+  let _ = OpenCL.Command_queue.nd_range_kernel queue kernel [|width; height|] (*~local_work_size:[|32; 32|]*) in
+  let _ = OpenCL.Command_queue.read_buffer queue buf_out true 0 b_out in
+  (* OpenCL.Event.wait event; *)
   let t = Sys.time () -. t in
   Printf.printf "done (%.02fs)\n%!" t;
   OpenCL.Command_queue.finish queue;
