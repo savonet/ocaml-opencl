@@ -66,7 +66,7 @@ module Buffer = struct
   (* TODO: phantom type to ensure buffer compatibility *)
   type t
 
-  type flag = [ `Read_write | `Read_only | `Write_only | `Alloc_device ]
+  type flag = [ `Read_write | `Read_only | `Write_only | `Alloc ]
 
   external create : Context.t -> flag array -> ('a, 'b, Bigarray.c_layout) Bigarray.Array1.t -> t = "caml_opencl_create_buffer"
   let create c f b = create c (Array.of_list f) b
@@ -132,18 +132,21 @@ let run ?platform ?(device_type=`GPU) kernel_file ?build_options kernel_name arg
         raise e
   );
   let kernel = Kernel.create prog kernel_name in
+  let res = ref [] in
   let args =
     Array.map
       (function
         | `Buffer_in b ->
           `Buffer (Buffer.create ctxt [`Read_only] b)
         | `Buffer_out b ->
-          `Buffer (Buffer.create ctxt [`Write_only] b)
+          let buf = Buffer.create ctxt [`Write_only; `Alloc] b in
+          res := (b, buf) :: !res;
+          `Buffer buf
         | `Int n as a -> a
       ) args
   in
   Kernel.set_args kernel args;
   Command_queue.finish queue;
-  let event = Command_queue.nd_range_kernel queue kernel ?local_work_size gws in
-  Event.wait event;
+  let _ = Command_queue.nd_range_kernel queue kernel ?local_work_size gws in
+  List.iter (fun (b, buf) -> ignore (Command_queue.read_buffer queue buf true 0 b)) !res;
   Command_queue.finish queue

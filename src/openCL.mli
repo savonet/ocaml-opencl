@@ -56,7 +56,7 @@ end
 module Buffer : sig
   type t
 
-  type flag = [ `Read_only | `Read_write | `Write_only | `Alloc_device ]
+  type flag = [ `Read_only | `Read_write | `Write_only | `Alloc ]
 
   val create : Context.t -> flag list -> ('a, 'b, Bigarray.c_layout) Bigarray.Array1.t -> t
 end

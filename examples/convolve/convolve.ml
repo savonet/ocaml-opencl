@@ -75,7 +75,7 @@ let () =
   init_data ();
   let t = Sys.time () in
   let b_in = OpenCL.Buffer.create ctxt [`Read_only] b_in in
-  let buf_out = OpenCL.Buffer.create ctxt [`Write_only; `Alloc_device] b_out in
+  let buf_out = OpenCL.Buffer.create ctxt [`Write_only; `Alloc] b_out in
   let b_filter = OpenCL.Buffer.create ctxt [`Read_only] b_filter in
   OpenCL.Kernel.set_args kernel [|`Buffer b_in; `Buffer b_filter; `Buffer buf_out; `Int in_width; `Int filter_width|];
   OpenCL.Command_queue.finish queue;

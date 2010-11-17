@@ -300,7 +300,7 @@ CAMLprim value caml_opencl_create_buffer(value context, value flags, value _buf)
 	mf |= CL_MEM_WRITE_ONLY;
       else if (Field(flags, i) == hash_variant("Read_only"))
 	mf |= CL_MEM_READ_ONLY;
-      else if (Field(flags, i) == hash_variant("Alloc_device"))
+      else if (Field(flags, i) == hash_variant("Alloc"))
 	buf = NULL;
     }
   /* We always use host pointers, is it a good idea? */

@@ -65,7 +65,7 @@ let () =
   randomize b;
   let a = OpenCL.Buffer.create ctxt [`Read_only] a in
   let b = OpenCL.Buffer.create ctxt [`Read_only] b in
-  let gpu_b = OpenCL.Buffer.create ctxt [`Write_only; `Alloc_device] gpu in
+  let gpu_b = OpenCL.Buffer.create ctxt [`Write_only; `Alloc] gpu in
   OpenCL.Kernel.set_args kernel [|`Buffer a; `Buffer b; `Buffer gpu_b; `Int n; `Int p|];
   OpenCL.Command_queue.finish queue;
   Printf.printf "Compute using CL ... %!";
