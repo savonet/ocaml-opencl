@@ -8,7 +8,11 @@
 #include <caml/signals.h>
 #include <caml/custom.h>
 
+#ifdef __APPLE__
+#include <OpenCL/cl.h>
+#else
 #include <CL/cl.h>
+#endif
 
 #include <assert.h>
 #include <stdio.h>

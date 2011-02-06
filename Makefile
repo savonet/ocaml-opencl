@@ -13,7 +13,7 @@ all clean doc:
 dist:
 	VERSION=$(VERSION); \
 	mkdir $(PROGNAME)-$$VERSION; \
-	cp -r --parents $(DISTFILES) $(PROGNAME)-$$VERSION; \
+	find $(DISTFILES) | cpio -pduv $(PROGNAME)-$$VERSION; \
 	tar zcvf $(PROGNAME)-$$VERSION.tar.gz $(PROGNAME)-$$VERSION; \
 	rm -rf $(PROGNAME)-$$VERSION
 
